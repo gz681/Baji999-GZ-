@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="bn">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>GameZone — Auto Crash Game</title>
+<link href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css" rel="stylesheet" />
+<style>
+body{margin:0;background:#0d0d12;color:#fff;font-family:Arial;}
+header{background:#1a1a24;padding:10px 20px;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:10;}
+.logo{font-size:22px;font-weight:700;}
+.balance-box{font-size:16px;}
+.container{display:flex;gap:20px;padding:20px;}
+.sidebar{width:200px;background:#16161d;padding:15px;border-radius:10px;}
+.main{flex:1;}
+#games-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:15px;}
+.game-card{padding:12px;background:#1a1a22;border-radius:12px;}
+.btn{width:100%;padding:10px;border:none;border-radius:6px;margin-top:10px;cursor:pointer;}
+.primary{background:#4a53ff;color:white;}
+.small{font-size:12px;}
+.muted{color:#bbb;}
+#game-panel{display:none;flex-direction:column;gap:10px;}
+#crash-graph{font-size:40px;text-align:center;margin:20px 0;}
+a{color:inherit;text-decoration:none;}
+@media(max-width:768px){.container{flex-direction:column;}.sidebar{width:100%;}}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo"><i class='bx bxl-firebase'></i> GameZone</div>
+  <div class="balance-box">Balance: <span id="balance">0.00</span>৳</div>
+</header>
+
+<div class="container">
+  <div class="sidebar">
+    <div>👤 <span id="user-name">অতিথি</span>
+    <button><a href="index.html">Login/Sign up</a></button></div>
+  </div>
+
+  <div class="main">
+    <!-- HOME PAGE -->
+    <div id="page-home">
+      <h2>🎮 গেম নির্বাচন করুন</h2>
+      <div id="games-grid"></div>
+    </div>
+
+    <!-- GAME PANEL -->
+    <div id="game-panel">
+      <button id="back-to-games" class="btn">⬅ Back</button>
+      <h2 id="route-name">crash</h2>
+
+      <!-- Crash Game -->
+      <div id="crash-ui" style="display:none;">
+        <h3>✈ Plane Crash</h3>
+        <div id="crash-graph">1.00x</div>
+        <div id="crash-status">Ready</div>
+        <input id="crash-bet" type="number" placeholder="Bet Amount" style="width:100%;padding:10px;">
+        <button id="crash-place" class="btn primary">Start</button>
+        <p>Balance: <span id="game-balance">0.00</span>৳</p>
+      </div>
+
+      <!-- Slots Game -->
+      <div id="slots-ui" style="display:none;">
+        <h3>🎰 Slots</h3>
+        <div id="slots-reel" style="display:flex;gap:10px;font-size:40px;">
+          <div class="slot-cell">🍒</div>
+          <div class="slot-cell">⭐</div>
+          <div class="slot-cell">7</div>
+        </div>
+        <input id="slots-bet" type="number" placeholder="Bet Amount" style="width:100%;padding:10px;">
+        <button id="slots-spin" class="btn primary">Spin</button>
+        <p id="slots-log"></p>
+      </div>
+
+      <!-- Roulette -->
+      <div id="roulette-ui" style="display:none;">
+        <h3>🎡 Roulette</h3>
+        <input id="roulette-bet" type="number" placeholder="Bet Amount" style="width:100%;padding:10px;">
+        <select id="roulette-pick" style="width:100%;padding:10px;">
+          <option value="red">Red</option>
+          <option value="black">Black</option>
+          <option value="green">Green</option>
+        </select>
+        <button id="roulette-spin" class="btn primary">Spin</button>
+        <div id="roulette-canvas" style="font-size:50px;margin:20px;text-align:center;">0</div>
+        <div id="roulette-log"></div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+/* ---------- Basic Helpers ---------- */
+const GAMES = [
+ {id:'crash', title:'Crash', cat:'casino', thumb:'✈'},
+ {id:'slots', title:'Slots', cat:'casino', thumb:'🎰'},
+ {id:'roulette', title:'Roulette', cat:'casino', thumb:'🎡'}
+];
+const KEY_USER = "gz_user";
+const $ = id => document.getElementById(id);
+const format = n => Number(n).toFixed(2);
+
+function getUser(){ let u = localStorage.getItem(KEY_USER); return u ? JSON.parse(u) : {name:"অতিথি", balance:0}; }
+function saveUser(u){ localStorage.setItem(KEY_USER, JSON.stringify(u)); renderUser(); }
+function renderUser(){ let u = getUser(); $('balance').innerText=format(u.balance); $('user-name').innerText=u.name; $('game-balance').innerText=format(u.balance); }
+function renderGames(){ const grid=$('games-grid'); grid.innerHTML=""; GAMES.forEach(g=>{ let div=document.createElement("div"); div.className="game-card"; div.innerHTML=`<div class='game-head'><div style='font-size:25px;'>${g.thumb}</div><div>${g.title}<br><span class='small muted'>${g.cat}</span></div></div><button class="btn primary" onclick="openGame('${g.id}')">খেলুন</button>`; grid.appendChild(div); }); }
+function openGame(id){ $('page-home').style.display='none'; $('game-panel').style.display='flex'; $('route-name').innerText=id; $('crash-ui').style.display='none'; $('slots-ui').style.display='none'; $('roulette-ui').style.display='none'; if(id==='crash') $('crash-ui').style.display='block'; if(id==='slots') $('slots-ui').style.display='block'; if(id==='roulette') $('roulette-ui').style.display='block'; }
+$('back-to-games').onclick=()=>{$('game-panel').style.display='none';$('page-home').style.display='block';};
+
+/* Auto Crash Game */
+let crashRunning=false; let crashTimer=null;
+function startCrashGame(){
+ if(crashRunning) return;
+ let bet=Number($('crash-bet').value);
+ let u=getUser();
+ if(bet<=0||bet>u.balance){ $('crash-status').innerText="বেট ঠিক নেই"; return; }
+ u.balance-=bet; saveUser(u); crashRunning=true; $('crash-status').innerText="চলছে...";
+ let x=1.00;
+ let interval=setInterval(()=>{
+   x+=0.03; $('crash-graph').innerText=x.toFixed(2)+"x";
+   if(Math.random()<0.02||x>=10){
+     clearInterval(interval); crashRunning=false; $('crash-status').innerText="শেষ";
+     if(x>=2){ let profit=bet*x; let u=getUser(); u.balance+=profit; saveUser(u); }
+     if(crashTimer) clearTimeout(crashTimer);
+     crashTimer=setTimeout(()=>{startCrashGame();},10000);
+   }
+ },70);
+}
+$('crash-place').onclick=()=>startCrashGame();
+
+/* Slots */
+const SYMBOLS=['🍒','🍋','🔔','⭐','7'];
+$('slots-spin').onclick=()=>{
+ let bet=Number($('slots-bet').value); let u=getUser();
+ if(bet<=0||bet>u.balance) return; u.balance-=bet; saveUser(u);
+ let c=document.querySelectorAll('#slots-reel .slot-cell'); let r=[];
+ for(let i=0;i<3;i++){ let s=SYMBOLS[Math.floor(Math.random()*SYMBOLS.length)]; r.push(s); c[i].innerText=s; }
+ $('slots-log').innerText=r.join(" | ");
+ if(r[0]===r[1]&&r[1]===r[2]){ let win=bet*5; u.balance+=win; saveUser(u); }
+};
+
+/* Roulette */
+$('roulette-spin').onclick=()=>{
+ let bet=Number($('roulette-bet').value); let pick=$('roulette-pick').value; let u=getUser();
+ if(bet<=0||bet>u.balance) return; u.balance-=bet; saveUser(u);
+ let num=Math.floor(Math.random()*37); let color=num===0?'green':(num%2?'red':'black');
+ $('roulette-canvas').innerText=num;
+ $('roulette-log').innerText=`Result: ${num} (${color})`;
+ if(color===pick){ let mult=pick==='green'?14:2; u.balance+=bet*mult; saveUser(u); }
+};
+
+renderUser(); renderGames();
+</script>
+</body>
+</html>
