@@ -1,3 +1,4 @@
+
 <!doctype html>
 <html lang="bn">
 <head>
@@ -29,7 +30,7 @@ a{color:inherit;text-decoration:none;}
 
 <header>
   <div class="logo"><i class='bx bxl-firebase'></i> GameZone</div>
-  <div class="balance-box">Balance: <span id="balance">0.00</span>৳</div>
+  <div class="balance-box">Balance: <span id="balance">00.00</span>৳</div>
 </header>
 
 <div class="container">
@@ -92,66 +93,196 @@ a{color:inherit;text-decoration:none;}
 </div>
 
 <script>
-/* ---------- Basic Helpers ---------- */
+/* ===========================
+      DAILY BONUS SYSTEM
+   =========================== */
+const KEY_USER = "gz_user";
+const DAILY_BONUS = 25;
+const ONE_DAY = 24 * 60 * 60 * 1000;
+
+function getUser() {
+    let u = localStorage.getItem(KEY_USER);
+
+    if (!u) {
+        let newUser = { name: "অতিথি", balance: DAILY_BONUS, lastBonus: Date.now() };
+        localStorage.setItem(KEY_USER, JSON.stringify(newUser));
+        return newUser;
+    }
+
+    u = JSON.parse(u);
+
+    if (!u.lastBonus) u.lastBonus = 0;
+    let now = Date.now();
+    if (now - u.lastBonus >= ONE_DAY) {
+        u.balance += DAILY_BONUS;
+        u.lastBonus = now;
+        saveUser(u);
+    }
+
+    return u;
+}
+
+function saveUser(u){
+ localStorage.setItem(KEY_USER, JSON.stringify(u));
+ renderUser();
+}
+
+/* UI RENDER */
+const $ = id => document.getElementById(id);
+const format = n => Number(n).toFixed(2);
+
+function renderUser(){
+ let u = getUser();
+ $('balance').innerText = format(u.balance);
+ $('user-name').innerText = u.name;
+ $('game-balance').innerText = format(u.balance);
+}
+
+/* GAME LIST */
 const GAMES = [
  {id:'crash', title:'Crash', cat:'casino', thumb:'✈'},
  {id:'slots', title:'Slots', cat:'casino', thumb:'🎰'},
  {id:'roulette', title:'Roulette', cat:'casino', thumb:'🎡'}
 ];
-const KEY_USER = "gz_user";
-const $ = id => document.getElementById(id);
-const format = n => Number(n).toFixed(2);
 
-function getUser(){ let u = localStorage.getItem(KEY_USER); return u ? JSON.parse(u) : {name:"অতিথি", balance:0}; }
-function saveUser(u){ localStorage.setItem(KEY_USER, JSON.stringify(u)); renderUser(); }
-function renderUser(){ let u = getUser(); $('balance').innerText=format(u.balance); $('user-name').innerText=u.name; $('game-balance').innerText=format(u.balance); }
-function renderGames(){ const grid=$('games-grid'); grid.innerHTML=""; GAMES.forEach(g=>{ let div=document.createElement("div"); div.className="game-card"; div.innerHTML=`<div class='game-head'><div style='font-size:25px;'>${g.thumb}</div><div>${g.title}<br><span class='small muted'>${g.cat}</span></div></div><button class="btn primary" onclick="openGame('${g.id}')">খেলুন</button>`; grid.appendChild(div); }); }
-function openGame(id){ $('page-home').style.display='none'; $('game-panel').style.display='flex'; $('route-name').innerText=id; $('crash-ui').style.display='none'; $('slots-ui').style.display='none'; $('roulette-ui').style.display='none'; if(id==='crash') $('crash-ui').style.display='block'; if(id==='slots') $('slots-ui').style.display='block'; if(id==='roulette') $('roulette-ui').style.display='block'; }
-$('back-to-games').onclick=()=>{$('game-panel').style.display='none';$('page-home').style.display='block';};
+function renderGames(){
+ const grid = $('games-grid');
+ grid.innerHTML = "";
+ GAMES.forEach(g=>{
+   let div=document.createElement("div");
+   div.className="game-card";
+   div.innerHTML=
+   `<div class='game-head'>
+      <div style='font-size:25px;'>${g.thumb}</div>
+      <div>${g.title}<br><span class='small muted'>${g.cat}</span></div>
+    </div>
+    <button class="btn primary" onclick="openGame('${g.id}')">খেলুন</button>`;
+   grid.appendChild(div);
+ });
+}
 
-/* Auto Crash Game */
-let crashRunning=false; let crashTimer=null;
+function openGame(id){
+ $('page-home').style.display='none';
+ $('game-panel').style.display='flex';
+ $('route-name').innerText=id;
+
+ $('crash-ui').style.display='none';
+ $('slots-ui').style.display='none';
+ $('roulette-ui').style.display='none';
+
+ if(id==='crash') $('crash-ui').style.display='block';
+ if(id==='slots') $('slots-ui').style.display='block';
+ if(id==='roulette') $('roulette-ui').style.display='block';
+}
+$('back-to-games').onclick=()=>{
+ $('game-panel').style.display='none';
+ $('page-home').style.display='block';
+};
+
+/* ====================================================
+                    CRASH GAME — HARD MODE
+   ==================================================== */
+let crashRunning=false;
+
 function startCrashGame(){
  if(crashRunning) return;
+
  let bet=Number($('crash-bet').value);
  let u=getUser();
- if(bet<=0||bet>u.balance){ $('crash-status').innerText="বেট ঠিক নেই"; return; }
- u.balance-=bet; saveUser(u); crashRunning=true; $('crash-status').innerText="চলছে...";
+ if(bet<=0 || bet>u.balance){ $('crash-status').innerText="বেট ঠিক নেই"; return; }
+
+ u.balance -= bet;
+ saveUser(u);
+
+ crashRunning=true;
+ $('crash-status').innerText="চলছে...";
  let x=1.00;
+
  let interval=setInterval(()=>{
-   x+=0.03; $('crash-graph').innerText=x.toFixed(2)+"x";
-   if(Math.random()<0.02||x>=10){
-     clearInterval(interval); crashRunning=false; $('crash-status').innerText="শেষ";
-     if(x>=2){ let profit=bet*x; let u=getUser(); u.balance+=profit; saveUser(u); }
-     if(crashTimer) clearTimeout(crashTimer);
-     crashTimer=setTimeout(()=>{startCrashGame();},10000);
+   x += 0.02;   // ধীরে বাড়বে
+   $('crash-graph').innerText = x.toFixed(2)+"x";
+
+   // বেশি হারার জন্য ক্র্যাশ সম্ভাবনা বৃদ্ধি
+   if(Math.random() < 0.05 || x >= 8){
+     clearInterval(interval);
+     crashRunning=false;
+     $('crash-status').innerText="শেষ";
+
+     // জেতার জন্য multiplier বেশি হওয়া দরকার
+     if(x >= 3){
+        let profit = bet * x;
+        let u=getUser();
+        u.balance += profit;
+        saveUser(u);
+     }
    }
- },70);
+ },75);
 }
-$('crash-place').onclick=()=>startCrashGame();
+$('crash-place').onclick = startCrashGame;
 
-/* Slots */
+/* ====================================================
+                    SLOTS GAME — HARD MODE
+   ==================================================== */
 const SYMBOLS=['🍒','🍋','🔔','⭐','7'];
+
 $('slots-spin').onclick=()=>{
- let bet=Number($('slots-bet').value); let u=getUser();
- if(bet<=0||bet>u.balance) return; u.balance-=bet; saveUser(u);
- let c=document.querySelectorAll('#slots-reel .slot-cell'); let r=[];
- for(let i=0;i<3;i++){ let s=SYMBOLS[Math.floor(Math.random()*SYMBOLS.length)]; r.push(s); c[i].innerText=s; }
+ let bet = Number($('slots-bet').value);
+ let u = getUser();
+ if(bet<=0 || bet>u.balance) return;
+
+ u.balance -= bet;
+ saveUser(u);
+
+ let cells=document.querySelectorAll('#slots-reel .slot-cell');
+ let r=[];
+
+ for(let i=0;i<3;i++){
+   let s = SYMBOLS[Math.floor(Math.random()*SYMBOLS.length)];
+   r.push(s);
+   cells[i].innerText=s;
+ }
+
  $('slots-log').innerText=r.join(" | ");
- if(r[0]===r[1]&&r[1]===r[2]){ let win=bet*5; u.balance+=win; saveUser(u); }
+
+ // হারার সম্ভাবনা বেশি → জেতার নিয়ম কঠিন
+ if(r[0]===r[1] && r[1]===r[2]){
+     let win = bet * 5; // আগে 7 → এখন কম
+     u=getUser();
+     u.balance += win;
+     saveUser(u);
+ }
 };
 
-/* Roulette */
+/* ====================================================
+                    ROULETTE — HARD MODE
+   ==================================================== */
 $('roulette-spin').onclick=()=>{
- let bet=Number($('roulette-bet').value); let pick=$('roulette-pick').value; let u=getUser();
- if(bet<=0||bet>u.balance) return; u.balance-=bet; saveUser(u);
- let num=Math.floor(Math.random()*37); let color=num===0?'green':(num%2?'red':'black');
- $('roulette-canvas').innerText=num;
- $('roulette-log').innerText=`Result: ${num} (${color})`;
- if(color===pick){ let mult=pick==='green'?14:2; u.balance+=bet*mult; saveUser(u); }
+ let bet=Number($('roulette-bet').value);
+ let pick=$('roulette-pick').value;
+ let u=getUser();
+ if(bet<=0||bet>u.balance) return;
+
+ u.balance -= bet;
+ saveUser(u);
+
+ let num=Math.floor(Math.random()*37);
+ let color = num===0 ? 'green' : (num%2 ? 'red' : 'black');
+
+ $('roulette-canvas').innerText = num;
+ $('roulette-log').innerText = `Result: ${num} (${color})`;
+
+ // হারার সম্ভাবনা বেশি → 50% chance
+ if(color === pick && Math.random() < 0.5){
+   let mult = pick==='green' ? 14 : 2;
+   u=getUser();
+   u.balance += bet*mult;
+   saveUser(u);
+ }
 };
 
-renderUser(); renderGames();
+renderUser();
+renderGames();
 </script>
+
 </body>
 </html>
