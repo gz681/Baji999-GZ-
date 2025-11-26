@@ -23,9 +23,60 @@ header{background:#1a1a24;padding:10px 20px;display:flex;justify-content:space-b
 #crash-graph{font-size:40px;text-align:center;margin:20px 0;}
 a{color:inherit;text-decoration:none;}
 @media(max-width:768px){.container{flex-direction:column;}.sidebar{width:100%;}}
+
+.navbar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: divice-width;
+    padding: 20px 8%;
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(10px);
+    z-index: 1000;
+    animation: slideDown 1s ease forwards;
+}
+@keyframes slideDown {
+    from { transform: translateY(-100%); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+}
+.navbar a {
+    position: relative;
+    margin-left: 30px;
+    font-size: 16px;
+    color: #fff;
+    text-decoration: none;
+    font-weight: 500;
+    transition: color 0.3s, transform 0.3s;
+    pointer-events: auto;
+}
+.navbar a::after {
+    content: '';
+    position: absolute;
+    bottom: -6px;
+    left: 0;
+    width: 0;
+    height: 2px;
+    background: #ff0040;
+    transition: width 0.4s;
+}
+.navbar a:hover::after { width: 100%; }
+.navbar a:hover { color: #ff0040; transform: scale(1.1); }
+.navbar a.active { color: #ff0040; font-weight: 600; }
+.navbar a.active::after { width: 100%; }
+
 </style>
 </head>
 <body>
+
+<nav class="navbar">
+    <a href="bazi999.html" class="active">Home</a>
+    <a href="#">About</a>
+    <a href="#">Contact</a>
+    <a href="index.html">Login</a>
+</nav><br><br><br>
 
 <header>
   <div class="logo"><i class='bx bxl-firebase'></i> GameZone</div>
@@ -34,9 +85,8 @@ a{color:inherit;text-decoration:none;}
 
 <div class="container">
   <div class="sidebar">
-    <div>👤 <span id="user-name">অতিথি</span>
-    <button><a href="index.html">Login/Sign up</a></button></div>
-  </div>
+    <div>👤 <span id="user-name">অতিথি</span></div>
+  </div> <!-- sidebar closed -->
 
   <div class="main">
     <!-- HOME PAGE -->
@@ -101,15 +151,12 @@ const ONE_DAY = 24 * 60 * 60 * 1000;
 
 function getUser() {
     let u = localStorage.getItem(KEY_USER);
-
     if (!u) {
         let newUser = { name: "অতিথি", balance: DAILY_BONUS, lastBonus: Date.now() };
         localStorage.setItem(KEY_USER, JSON.stringify(newUser));
         return newUser;
     }
-
     u = JSON.parse(u);
-
     if (!u.lastBonus) u.lastBonus = 0;
     let now = Date.now();
     if (now - u.lastBonus >= ONE_DAY) {
@@ -117,7 +164,6 @@ function getUser() {
         u.lastBonus = now;
         saveUser(u);
     }
-
     return u;
 }
 
@@ -198,17 +244,15 @@ function startCrashGame(){
  let x=1.00;
 
  let interval=setInterval(()=>{
-   x += 0.02;   // ধীরে বাড়বে
+   x += 0.02;
    $('crash-graph').innerText = x.toFixed(2)+"x";
 
-   // বেশি হারার জন্য ক্র্যাশ সম্ভাবনা বৃদ্ধি
    if(Math.random() < 0.05 || x >= 8){
      clearInterval(interval);
      crashRunning=false;
      $('crash-status').innerText="শেষ";
 
-     // জেতার জন্য multiplier বেশি হওয়া দরকার
-     if(x >= 3){
+     if(x >= 3 && Math.random()<0.7){
         let profit = bet * x;
         let u=getUser();
         u.balance += profit;
@@ -243,9 +287,8 @@ $('slots-spin').onclick=()=>{
 
  $('slots-log').innerText=r.join(" | ");
 
- // হারার সম্ভাবনা বেশি → জেতার নিয়ম কঠিন
- if(r[0]===r[1] && r[1]===r[2]){
-     let win = bet * 5; // আগে 7 → এখন কম
+ if(r[0]===r[1] && r[1]===r[2] && Math.random()<0.2){
+     let win = bet * 5;
      u=getUser();
      u.balance += win;
      saveUser(u);
@@ -270,7 +313,6 @@ $('roulette-spin').onclick=()=>{
  $('roulette-canvas').innerText = num;
  $('roulette-log').innerText = `Result: ${num} (${color})`;
 
- // হারার সম্ভাবনা বেশি → 50% chance
  if(color === pick && Math.random() < 0.5){
    let mult = pick==='green' ? 14 : 2;
    u=getUser();
